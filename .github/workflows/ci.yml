@@ -1,10 +1,38 @@
 name: Build and Release Slang Android
 
 on:
+  schedule:
+    - cron: "0 0 * * 0" # check for new releases every week
   workflow_dispatch:
 
 jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.compare.outputs.new_tag }}
+      should_run: ${{ steps.compare.outputs.should_run }}
+    steps:
+      - name: Compare Tags
+        id: compare
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPSTREAM_TAG=$(curl -s https://api.github.com/repos/shader-slang/slang/releases/latest | jq -r .tag_name)
+          LOCAL_TAG=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+            https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .tag_name)
+
+          echo "Upstream: $UPSTREAM_TAG | Local: $LOCAL_TAG"
+
+          if [ "$UPSTREAM_TAG" != "$LOCAL_TAG" ] && [ "$UPSTREAM_TAG" != "null" ]; then
+            echo "new_tag=$UPSTREAM_TAG" >> $GITHUB_OUTPUT
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+
   release:
+    needs: check-version
+    if: needs.check-version.outputs.should_run == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -13,12 +41,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Get Latest Slang Tag
+      - name: Determine Tag
         id: slang_tag
         run: |
-          TAG=$(curl -s https://api.github.com/repos/shader-slang/slang/releases/latest | jq -r .tag_name)
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            TAG=$(curl -s https://api.github.com/repos/shader-slang/slang/releases/latest | jq -r .tag_name)
+          else
+            TAG="${{ needs.check-version.outputs.new_tag }}"
+          fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Building version $TAG"
 
       - name: Set up Python
         uses: actions/setup-python@v5
