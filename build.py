@@ -115,6 +115,14 @@ def main():
     else:
         print("--- Slang directory exists, skipping clone.")
 
+    common_flags = [
+        "-DSLANG_ENABLE_GFX=OFF",
+        "-DSLANG_ENABLE_SLANG_RHI=OFF",
+        "-DSLANG_ENABLE_SLANGRT=OFF",
+        "-DSLANG_ENABLE_EXAMPLES=OFF",
+        "-DSLANG_ENABLE_TESTS=OFF",
+    ]
+
     # build host generators
     print("--- Building Host Generators...")
     if not host_build_dir.exists():
@@ -130,10 +138,7 @@ def main():
         "-DCMAKE_BUILD_TYPE=Release",
         "-DSLANG_BUILD_GENERATORS=ON",
         "-DSLANG_LIB_TYPE=STATIC",
-        "-DSLANG_ENABLE_GFX=OFF",
-        "-DSLANG_ENABLE_EXAMPLES=OFF",
-        "-DSLANG_ENABLE_TESTS=OFF",
-    ]
+    ] + common_flags
     run_cmd(cmake_host_cmd)
     run_cmd(["cmake", "--build", str(host_build_dir)])
 
@@ -174,9 +179,7 @@ def main():
         "-DSLANG_LIB_TYPE=SHARED",
         f"-DSLANG_GENERATORS_PATH={host_tools_dir / 'bin'}",
         "-DSLANG_SLANG_LLVM_FLAVOR=DISABLE",
-        "-DSLANG_ENABLE_EXAMPLES=OFF",
-        "-DSLANG_ENABLE_TESTS=OFF",
-    ]
+    ] + common_flags
     run_cmd(cmake_android_cmd)
     run_cmd(["cmake", "--build", str(android_build_dir), "--target", "slang"])
 
